@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NexusRB — Outfit Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #080b10;
+    --bg2: #0d1117;
+    --bg3: #111820;
+    --bg4: #151d28;
+    --border: rgba(99,179,237,0.12);
+    --border2: rgba(99,179,237,0.22);
+    --accent: #38bdf8;
+    --accent-glow: rgba(56,189,248,0.18);
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --muted2: #94a3b8;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .bg-grid {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.025) 1px, transparent 1px);
+    background-size: 56px 56px;
+    pointer-events: none;
+  }
+  .bg-glow {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 50% 40%, rgba(56,189,248,0.05) 0%, transparent 65%);
+    pointer-events: none;
+  }
+
+  /* ── KEY HINT ── */
+  .key-hint {
+    position: fixed; bottom: 1.8rem; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 0.6rem;
+    background: rgba(13,17,23,0.92); border: 1px solid var(--border);
+    border-radius: 100px; padding: 0.55rem 1.3rem;
+    font-size: 0.73rem; color: var(--muted2);
+    backdrop-filter: blur(14px); z-index: 10;
+    animation: fadeIn 1s 0.4s ease both;
+  }
+  .key-hint kbd {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 4px; padding: 0.15rem 0.55rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--accent);
+  }
+
+  /* ── OVERLAY ── */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(5px);
+    z-index: 50; opacity: 0; pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  .overlay.open { opacity: 1; pointer-events: all; }
+
+  /* ── MENU ── */
+  .menu {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.93);
+    width: 960px; max-width: 97vw;
+    height: 640px; max-height: 94vh;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    z-index: 100;
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: all 0.32s cubic-bezier(0.34, 1.2, 0.64, 1);
+    overflow: hidden;
+    box-shadow: 0 0 100px rgba(0,0,0,0.7), 0 0 50px rgba(56,189,248,0.05);
+  }
+  .menu.open {
+    opacity: 1; pointer-events: all;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  /* Title bar */
+  .menu-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.85rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,11,16,0.7);
+    flex-shrink: 0;
+  }
+  .menu-bar-left { display: flex; align-items: center; gap: 0.7rem; }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1rem; letter-spacing: -0.02em; }
+  .logo span { color: var(--accent); }
+  .ver {
+    background: rgba(56,189,248,0.09); border: 1px solid rgba(56,189,248,0.2);
+    border-radius: 4px; padding: 0.1rem 0.5rem;
+    font-size: 0.6rem; color: var(--accent); letter-spacing: 0.08em;
+  }
+  .close-btn {
+    background: none; border: 1px solid var(--border); border-radius: 4px;
+    color: var(--muted); font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem; padding: 0.28rem 0.7rem; cursor: pointer;
+    transition: all 0.18s; letter-spacing: 0.06em;
+  }
+  .close-btn:hover { border-color: #f87171; color: #f87171; }
+
+  /* Body */
+  .menu-body { display: flex; flex: 1; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 175px; flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding: 0.9rem 0.7rem;
+    display: flex; flex-direction: column; gap: 0.2rem;
+    background: rgba(8,11,16,0.45);
+  }
+  .sidebar-label {
+    font-size: 0.58rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 0.5rem 0.6rem 0.2rem;
+  }
+  .sb-btn {
+    display: flex; align-items: center; gap: 0.55rem;
+    padding: 0.58rem 0.72rem; border-radius: 6px;
+    border: 1px solid transparent; background: none;
+    color: var(--muted2); font-family: 'JetBrains Mono', monospace;
+    font-size: 0.73rem; cursor: pointer; transition: all 0.14s; text-align: left; width: 100%;
+  }
+  .sb-btn:hover { background: var(--bg3); color: var(--text); }
+  .sb-btn.active { background: rgba(56,189,248,0.09); color: var(--accent); border-color: rgba(56,189,248,0.18); }
+  .sb-icon { font-size: 0.88rem; flex-shrink: 0; }
+
+  /* Panel */
+  .panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .panel-header {
+    padding: 0.85rem 1.3rem 0.7rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.9rem;
+    flex-shrink: 0;
+  }
+  .panel-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.92rem; flex: 1; }
+
+  .search-box {
+    display: flex; align-items: center; gap: 0.45rem;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.38rem 0.7rem;
+    flex: 1; max-width: 240px; transition: border-color 0.2s;
+  }
+  .search-box:focus-within { border-color: var(--accent); }
+  .search-box input {
+    background: none; border: none; outline: none;
+    color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 0.73rem; width: 100%;
+  }
+  .search-box input::placeholder { color: var(--muted); }
+
+  /* Category tabs */
+  .cat-tabs {
+    display: flex; gap: 0.35rem;
+    padding: 0.7rem 1.3rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+  }
+  .cat-tabs::-webkit-scrollbar { display: none; }
+  .cat-tab {
+    padding: 0.3rem 0.8rem; border-radius: 100px;
+    border: 1px solid var(--border); background: none;
+    color: var(--muted); font-family: 'JetBrains Mono', monospace;
+    font-size: 0.66rem; letter-spacing: 0.04em;
+    cursor: pointer; white-space: nowrap; transition: all 0.14s;
+  }
+  .cat-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .cat-tab.active { background: var(--accent); border-color: var(--accent); color: #020b14; font-weight: 600; }
+
+  /* Panel content scroll */
+  .panel-content {
+    flex: 1; overflow-y: auto; padding: 1.1rem 1.3rem;
+    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  }
+  .panel-content::-webkit-scrollbar { width: 4px; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* Tab visibility */
+  .tab-pane { display: none; height: 100%; }
+  .tab-pane.active { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+  /* ── CATALOG GRID ── */
+  .catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+    gap: 0.7rem;
+  }
+  .c-item {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.7rem 0.5rem 0.55rem;
+    cursor: pointer; transition: all 0.18s; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .c-item:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(56,189,248,0.1); }
+  .c-item.equipped { border-color: var(--accent); background: rgba(56,189,248,0.07); }
+  .c-item.equipped::after {
+    content: '✓'; position: absolute; top: 4px; right: 6px;
+    color: var(--accent); font-size: 0.62rem; font-weight: 700;
+  }
+  .c-item img {
+    width: 72px; height: 72px; object-fit: contain;
+    border-radius: 6px; background: var(--bg4);
+    display: block; margin: 0 auto 0.45rem;
+  }
+  .c-item-fallback {
+    width: 72px; height: 72px; border-radius: 6px; background: var(--bg4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; margin: 0 auto 0.45rem;
+  }
+  .c-item-name { font-size: 0.6rem; color: var(--muted2); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .c-item-price { font-size: 0.58rem; color: var(--accent); margin-top: 0.25rem; }
+
+  /* Skeleton */
+  .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 0.7rem; }
+  .skeleton {
+    height: 128px; border-radius: 8px;
+    background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+    background-size: 200% 100%; animation: shimmer 1.3s infinite;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  /* Empty/error */
+  .empty-state { grid-column: 1/-1; text-align: center; padding: 3rem 0; color: var(--muted); font-size: 0.78rem; line-height: 1.8; }
+
+  /* Status bar */
+  .status-bar {
+    padding: 0.45rem 1.3rem;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(8,11,16,0.5); flex-shrink: 0;
+  }
+  .status-dot { display: flex; align-items: center; gap: 0.4rem; font-size: 0.6rem; color: var(--muted); }
+  .dot { width: 5px; height: 5px; border-radius: 50%; animation: pulse 2s infinite; }
+  .dot.green { background: #4ade80; }
+  .dot.yellow { background: #facc15; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+  /* ── AVATAR TAB ── */
+  .avatar-layout { display: flex; gap: 1.3rem; height: 100%; }
+
+  .avatar-sidebar {
+    width: 195px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 1rem;
+  }
+
+  .avatar-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.2rem 1rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+  }
+  .avatar-frame {
+    width: 130px; height: 170px;
+    background: var(--bg4); border-radius: 8px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .avatar-frame img { width: 100%; height: 100%; object-fit: contain; }
+  .avatar-scan {
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scan 3s linear infinite; top: -5%;
+  }
+  @keyframes scan { from{top:-5%} to{top:105%} }
+  .avatar-name { font-family:'Syne',sans-serif; font-weight:700; font-size:0.85rem; text-align:center; }
+  .avatar-uid { font-size:0.62rem; color:var(--muted); }
+
+  .user-lookup { display: flex; gap: 0.35rem; width: 100%; }
+  .user-lookup input {
+    flex: 1; min-width: 0;
+    background: var(--bg4); border: 1px solid var(--border);
+    border-radius: 5px; padding: 0.38rem 0.6rem;
+    color: var(--text); font-family:'JetBrains Mono',monospace;
+    font-size: 0.68rem; outline: none; transition: border-color .2s;
+  }
+  .user-lookup input:focus { border-color: var(--accent); }
+  .user-lookup button {
+    background: var(--accent); border: none; border-radius: 5px;
+    color: #020b14; font-family:'JetBrains Mono',monospace;
+    font-size: 0.62rem; font-weight: 700;
+    padding: 0 0.65rem; cursor: pointer; transition: background .2s; white-space: nowrap;
+  }
+  .user-lookup button:hover { background: #7dd3fc; }
+
+  .equipped-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .equipped-title { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 0.7rem; }
+  .equipped-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.45rem; scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+
+  .eq-slot {
+    display: flex; align-items: center; gap: 0.65rem;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 7px; padding: 0.45rem 0.7rem;
+  }
+  .eq-img { width: 36px; height: 36px; object-fit: contain; border-radius: 4px; background: var(--bg4); flex-shrink: 0; }
+  .eq-img-placeholder { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--bg4); border-radius: 4px; font-size: 1.1rem; flex-shrink: 0; }
+  .eq-info { flex: 1; min-width: 0; }
+  .eq-type { font-size: 0.56rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .eq-name { font-size: 0.7rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .eq-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.75rem; padding: 0.1rem 0.25rem; transition: color .18s; flex-shrink: 0; }
+  .eq-remove:hover { color: #f87171; }
+
+  /* ── SAVED FITS ── */
+  .fit-card {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.9rem 1rem; margin-bottom: 0.65rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    transition: border-color .2s;
+  }
+  .fit-card:hover { border-color: var(--border2); }
+  .fit-name { font-family:'Syne',sans-serif; font-weight:700; font-size:.86rem; margin-bottom:.25rem; }
+  .fit-meta { font-size:.62rem; color:var(--muted); }
+  .fit-actions { display:flex; gap:.4rem; flex-shrink:0; }
+  .fit-btn {
+    background: none; border: 1px solid var(--border); border-radius: 4px;
+    color: var(--muted2); font-family:'JetBrains Mono',monospace;
+    font-size: .62rem; padding: .3rem .65rem; cursor: pointer; transition: all .15s;
+  }
+  .fit-btn.load { background: var(--accent); border-color: var(--accent); color: #020b14; font-weight: 700; }
+  .fit-btn.load:hover { background: #7dd3fc; }
+  .fit-btn:not(.load):hover { border-color: #f87171; color: #f87171; }
+
+  /* ── SETTINGS ── */
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 7px; padding: .8rem 1rem; cursor: pointer;
+  }
+  .setting-row span { font-size: .78rem; }
+  .setting-row input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="key-hint">Press <kbd>X</kbd> to open NexusRB</div>
+
+<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+<div class="menu" id="menu">
+
+  <!-- Bar -->
+  <div class="menu-bar">
+    <div class="menu-bar-left">
+      <div class="logo">Nexus<span>RB</span></div>
+      <div class="ver">v2.4.0</div>
+    </div>
+    <button class="close-btn" onclick="closeMenu()">[ X ] Close</button>
+  </div>
+
+  <div class="menu-body">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-label">// Menu</div>
+      <button class="sb-btn active" onclick="openTab('catalog',this)"><span class="sb-icon">🛍️</span> Catalog</button>
+      <button class="sb-btn" onclick="openTab('avatar',this)"><span class="sb-icon">👤</span> Avatar</button>
+      <div class="sidebar-label" style="margin-top:.4rem">// More</div>
+      <button class="sb-btn" onclick="openTab('saved',this)"><span class="sb-icon">💾</span> Saved Fits</button>
+      <button class="sb-btn" onclick="openTab('settings',this)"><span class="sb-icon">⚙️</span> Settings</button>
+    </div>
+
+    <!-- Panel -->
+    <div class="panel">
+
+      <!-- CATALOG -->
+      <div id="tab-catalog" class="tab-pane active">
+        <div class="panel-header">
+          <div class="panel-title">Catalog</div>
+          <div class="search-box">
+            <span style="color:var(--muted);font-size:.8rem">🔍</span>
+            <input id="searchInput" type="text" placeholder="Search items..." oninput="onSearch()"/>
+          </div>
+        </div>
+        <div class="cat-tabs">
+          <button class="cat-tab active" onclick="setCat('All',this)">All</button>
+          <button class="cat-tab" onclick="setCat('Hats',this)">🎩 Hats</button>
+          <button class="cat-tab" onclick="setCat('Shirts',this)">👕 Shirts</button>
+          <button class="cat-tab" onclick="setCat('Pants',this)">👖 Pants</button>
+          <button class="cat-tab" onclick="setCat('Faces',this)">😊 Faces</button>
+          <button class="cat-tab" onclick="setCat('Accessories',this)">💎 Accessories</button>
+          <button class="cat-tab" onclick="setCat('Packages',this)">📦 Packages</button>
+        </div>
+        <div class="panel-content">
+          <div class="catalog-grid" id="catalogGrid"></div>
+        </div>
+        <div class="status-bar">
+          <div class="status-dot"><span class="dot green"></span> Roblox API</div>
+          <div style="font-size:.6rem;color:var(--muted)" id="itemCount"></div>
+        </div>
+      </div>
+
+      <!-- AVATAR -->
+      <div id="tab-avatar" class="tab-pane">
+        <div class="panel-header">
+          <div class="panel-title">Avatar Preview</div>
+        </div>
+        <div class="panel-content" style="padding:1.1rem 1.3rem">
+          <div class="avatar-layout">
+            <div class="avatar-sidebar">
+              <div class="avatar-card">
+                <div class="avatar-frame">
+                  <img id="avatarImg" src="" style="display:none" alt="avatar"/>
+                  <span id="avatarPlaceholder" style="font-size:3rem">👤</span>
+                  <div class="avatar-scan"></div>
+                </div>
+                <div class="avatar-name" id="avatarName">No User Loaded</div>
+                <div class="avatar-uid" id="avatarUid">—</div>
+                <div class="user-lookup">
+                  <input id="usernameInput" type="text" placeholder="Username..." onkeydown="if(event.key==='Enter')loadAvatar()"/>
+                  <button onclick="loadAvatar()">Load</button>
+                </div>
+              </div>
+            </div>
+            <div class="equipped-panel">
+              <div class="equipped-title">// Equipped Items</div>
+              <div class="equipped-scroll" id="equippedScroll">
+                <div id="equippedEmpty" style="font-size:.75rem;color:var(--muted);padding:.5rem 0">
+                  No items equipped. Browse the Catalog tab and click items to equip them.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SAVED FITS -->
+      <div id="tab-saved" class="tab-pane">
+        <div class="panel-header">
+          <div class="panel-title">Saved Outfits</div>
+          <button onclick="saveCurrentFit()" style="background:var(--accent);border:none;border-radius:5px;color:#020b14;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:700;padding:.38rem .9rem;cursor:pointer;transition:background .2s" onmouseover="this.style.background='#7dd3fc'" onmouseout="this.style.background='var(--accent)'">+ Save Current</button>
+        </div>
+        <div class="panel-content">
+          <div id="savedList"></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="tab-settings" class="tab-pane">
+        <div class="panel-header">
+          <div class="panel-title">Settings</div>
+        </div>
+        <div class="panel-content">
+          <div style="display:flex;flex-direction:column;gap:.7rem;max-width:380px">
+            <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.1rem">// General</div>
+            <label class="setting-row"><span>Show item prices</span><input type="checkbox" checked/></label>
+            <label class="setting-row"><span>Compact catalog view</span><input type="checkbox"/></label>
+            <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:.3rem;margin-bottom:.1rem">// Hotkey</div>
+            <div class="setting-row" style="cursor:default"><span>Toggle menu</span><kbd style="background:var(--bg4);border:1px solid var(--border2);border-radius:4px;padding:.15rem .6rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--accent)">X</kbd></div>
+            <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:.3rem;margin-bottom:.1rem">// License</div>
+            <div class="setting-row" style="cursor:default"><span>Key Status</span><span style="font-size:.7rem;color:#4ade80">● Active — Lifetime</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let currentCat = 'All';
+let searchQuery = '';
+let allItems = [];
+let equippedItems = {};
+let savedFits = [];
+let searchTimer = null;
+
+// ── MENU ──
+function openMenu() {
+  document.getElementById('menu').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+  if (allItems.length === 0) fetchCatalog();
+}
+function closeMenu() {
+  document.getElementById('menu').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+document.addEventListener('keydown', e => {
+  if ((e.key === 'x' || e.key === 'X') && !e.target.matches('input')) {
+    document.getElementById('menu').classList.contains('open') ? closeMenu() : openMenu();
+  }
+  if (e.key === 'Escape') closeMenu();
+});
+
+// ── TABS ──
+function openTab(name, btn) {
+  document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'saved') renderSaved();
+}
+
+// ── CATALOG ──
+async function fetchCatalog() {
+  const grid = document.getElementById('catalogGrid');
+  grid.innerHTML = Array(12).fill('<div class="skeleton"></div>').join('');
+  document.getElementById('itemCount').textContent = 'Loading...';
+
+  const catParam = currentCat !== 'All' ? `&category=${encodeURIComponent(currentCat)}` : '';
+  const kwParam = searchQuery ? `&keyword=${encodeURIComponent(searchQuery)}` : '';
+
+  try {
+    const res = await fetch(`/api/catalog?${catParam}${kwParam}`);
+    const data = await res.json();
+    allItems = data.items || [];
+    renderCatalog();
+  } catch(e) {
+    grid.innerHTML = `<div class="empty-state">⚠️ Could not load catalog.<br/>Make sure the app is deployed on Vercel.</div>`;
+    document.getElementById('itemCount').textContent = 'Error';
+  }
+}
+
+function renderCatalog() {
+  const grid = document.getElementById('catalogGrid');
+  const items = allItems;
+  document.getElementById('itemCount').textContent = items.length + ' items';
+
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="empty-state">No items found.</div>`;
+    return;
+  }
+
+  grid.innerHTML = items.map(item => {
+    const eq = equippedItems[item.category]?.id === item.id;
+    const imgEl = item.imageUrl
+      ? `<img src="${item.imageUrl}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+         <div class="c-item-fallback" style="display:none">🎮</div>`
+      : `<div class="c-item-fallback">🎮</div>`;
+    return `
+      <div class="c-item ${eq ? 'equipped' : ''}" onclick="toggleEquip(${item.id})">
+        ${imgEl}
+        <div class="c-item-name">${item.name}</div>
+        <div class="c-item-price">${item.price === 0 ? 'Free' : item.price + ' R$'}</div>
+      </div>`;
+  }).join('');
+}
+
+function setCat(cat, btn) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  allItems = [];
+  fetchCatalog();
+}
+
+function onSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    searchQuery = document.getElementById('searchInput').value.trim();
+    allItems = [];
+    fetchCatalog();
+  }, 500);
+}
+
+// ── EQUIP ──
+function toggleEquip(id) {
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  if (equippedItems[item.category]?.id === id) delete equippedItems[item.category];
+  else equippedItems[item.category] = item;
+  renderCatalog();
+  renderEquipped();
+}
+
+function renderEquipped() {
+  const scroll = document.getElementById('equippedScroll');
+  const empty = document.getElementById('equippedEmpty');
+  const items = Object.values(equippedItems);
+
+  if (items.length === 0) {
+    scroll.innerHTML = '';
+    scroll.appendChild(empty);
+    empty.style.display = 'block';
+    return;
+  }
+
+  if (empty.parentNode) empty.parentNode.removeChild(empty);
+
+  scroll.innerHTML = items.map(item => {
+    const imgEl = item.imageUrl
+      ? `<img class="eq-img" src="${item.imageUrl}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+         <div class="eq-img-placeholder" style="display:none">🎮</div>`
+      : `<div class="eq-img-placeholder">🎮</div>`;
+    return `
+      <div class="eq-slot">
+        ${imgEl}
+        <div class="eq-info">
+          <div class="eq-type">${item.category}</div>
+          <div class="eq-name">${item.name}</div>
+        </div>
+        <button class="eq-remove" onclick="removeEquipped('${item.category}')">✕</button>
+      </div>`;
+  }).join('');
+}
+
+function removeEquipped(cat) {
+  delete equippedItems[cat];
+  renderEquipped();
+  renderCatalog();
+}
+
+// ── AVATAR ──
+async function loadAvatar() {
+  const username = document.getElementById('usernameInput').value.trim();
+  if (!username) return;
+  document.getElementById('avatarName').textContent = username;
+  document.getElementById('avatarUid').textContent = 'Loading...';
+  document.getElementById('avatarImg').style.display = 'none';
+  document.getElementById('avatarPlaceholder').style.display = 'block';
+
+  try {
+    const res = await fetch(`/api/user?username=${encodeURIComponent(username)}`);
+    const data = await res.json();
+    if (data.error) { document.getElementById('avatarUid').textContent = data.error; return; }
+    document.getElementById('avatarUid').textContent = 'ID: ' + data.id;
+    if (data.imageUrl) {
+      const img = document.getElementById('avatarImg');
+      img.src = data.imageUrl;
+      img.style.display = 'block';
+      document.getElementById('avatarPlaceholder').style.display = 'none';
+    }
+  } catch(e) {
+    document.getElementById('avatarUid').textContent = 'Request failed';
+  }
+}
+
+// ── SAVED FITS ──
+function saveCurrentFit() {
+  if (Object.keys(equippedItems).length === 0) { alert('Equip some items first!'); return; }
+  const name = prompt('Name this outfit:') || ('Outfit ' + (savedFits.length + 1));
+  savedFits.push({ name, items: Object.values(equippedItems), date: new Date().toLocaleDateString() });
+  renderSaved();
+}
+
+function renderSaved() {
+  const list = document.getElementById('savedList');
+  if (savedFits.length === 0) {
+    list.innerHTML = `<div style="text-align:center;padding:3rem 0;color:var(--muted);font-size:.78rem">No saved outfits yet.<br/>Equip some items and hit "Save Current".</div>`;
+    return;
+  }
+  list.innerHTML = savedFits.map((fit, i) => `
+    <div class="fit-card">
+      <div>
+        <div class="fit-name">${fit.name}</div>
+        <div class="fit-meta">${fit.items.map(x => x.name).join(', ')} · ${fit.date}</div>
+      </div>
+      <div class="fit-actions">
+        <button class="fit-btn load" onclick="loadFit(${i})">Load</button>
+        <button class="fit-btn" onclick="deleteFit(${i})">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+function loadFit(i) {
+  equippedItems = {};
+  savedFits[i].items.forEach(item => { equippedItems[item.category] = item; });
+  renderEquipped(); renderCatalog();
+}
+function deleteFit(i) { savedFits.splice(i, 1); renderSaved(); }
+
+// auto open for demo
+setTimeout(openMenu, 500);
+</script>
+</body>
+</html>
