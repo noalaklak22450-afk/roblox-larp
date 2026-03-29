@@ -1,0 +1,13 @@
+{
+  "name": "nexusrb",
+  "version": "1.0.0",
+  "description": "NexusRB Roblox Outfit Builder",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0"
+  }
+}
